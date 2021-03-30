@@ -24,7 +24,13 @@ fn main() -> Result<()> {
         eprintln!("Problem parsing arguments. Expected URL");
         process::exit(1);
     }
-    let body = fetch(args.get(1).unwrap())?;
+    let url = args.get(1).unwrap();
+    let url = if url.ends_with(".diff") {
+        url.to_string()
+    } else {
+        format!("{}.diff", url)
+    };
+    let body = fetch(&url)?;
 
     let mut files = HashSet::new();
     for line in body.lines() {
