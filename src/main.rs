@@ -9,7 +9,7 @@ struct Options {
     url: String,
     /// Instead of showing filed edited, show actual diffs
     #[clap(short, long)]
-    show_patch: bool,
+    patch: bool,
 }
 
 fn main() -> Result<()> {
@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     };
     let body = fetch_pr(&url)?;
 
-    if options.show_patch {
+    if options.patch {
         print_diff(&body);
     } else {
         print_modified_filed(&body);
