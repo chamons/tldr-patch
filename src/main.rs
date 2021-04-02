@@ -1,13 +1,20 @@
 use std::io::Read;
-use std::process;
-use std::{collections::HashSet, env};
+use std::{collections::HashSet};
 
 use error_chain::error_chain;
+use clap::Clap;
+
 error_chain! {
     foreign_links {
         Io(std::io::Error);
         HttpRequest(reqwest::Error);
     }
+}
+
+#[derive(Clap)]
+#[clap(version = "0.1", author = "Chris Hamons <chris.hamons@gmail.com>")]
+struct Options {
+    url: String,
 }
 
 fn fetch(url: &str) -> Result<String> {
@@ -18,13 +25,9 @@ fn fetch(url: &str) -> Result<String> {
 }
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let options: Options = Options::parse();
 
-    if args.len() != 2 {
-        eprintln!("Problem parsing arguments. Expected URL");
-        process::exit(1);
-    }
-    let url = args.get(1).unwrap();
+    let url = options.url;
     let url = if url.ends_with(".diff") {
         url.to_string()
     } else {
