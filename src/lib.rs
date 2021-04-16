@@ -24,7 +24,7 @@ fn calculate_modified_files(body: &str) -> HashSet<&str> {
     for line in body.lines() {
         if line.starts_with("+++ ") || line.starts_with("--- ") {
             let file = patch_line_to_file_name(&line);
-            if !file.contains("Generated") && !file.contains("/dev/null") {
+            if !file.contains("Generated") && !file.contains("SessionRecords") && !file.contains("/dev/null") {
                 files.insert(file);
             }
         }
