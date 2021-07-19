@@ -2,11 +2,41 @@ use std::collections::HashSet;
 use std::io::Read;
 
 use error_chain::error_chain;
+use regex::Regex;
+use std::result::Result as StdResult;
 
 error_chain! {
     foreign_links {
         Io(std::io::Error);
         HttpRequest(reqwest::Error);
+        Regex(regex::Error);
+    }
+}
+
+struct FileFilter {
+    filters: Option<Vec<Regex>>,
+}
+
+impl FileFilter {
+    pub fn init(filter: &Option<String>) -> Result<FileFilter> {
+        let filters: Option<Vec<Regex>> = if let Some(filter) = filter {
+            // error_chain's Result gave me grief here
+            let filters: StdResult<_, _> = std::fs::read_to_string(filter)?.lines().map(|l| Regex::new(l)).collect();
+            Some(filters?)
+        } else {
+            None
+        };
+        Ok(FileFilter { filters })
+    }
+
+    pub fn should_be_filtered(&self, file_name: &str) -> bool {
+        if file_name.contains("/dev/null") {
+            true
+        } else if let Some(filters) = &self.filters {
+            filters.iter().any(|f| f.is_match(file_name))
+        } else {
+            file_name.contains("Generated") || file_name.contains("SessionRecords")
+        }
     }
 }
 
@@ -19,36 +49,35 @@ fn patch_line_to_file_name(line: &str) -> &str {
     }
 }
 
-fn calculate_modified_files(body: &str) -> HashSet<&str> {
+fn calculate_modified_files<'a>(body: &'a str, filter: &Option<String>) -> Result<HashSet<&'a str>> {
+    let filter = FileFilter::init(filter)?;
     let mut files = HashSet::new();
     for line in body.lines() {
         if line.starts_with("+++ ") || line.starts_with("--- ") {
             let file = patch_line_to_file_name(&line);
-            if !file.contains("Generated") && !file.contains("SessionRecords") && !file.contains("/dev/null") {
+            if !filter.should_be_filtered(file) {
                 files.insert(file);
             }
         }
     }
-    files
+    Ok(files)
 }
 
-fn get_modified_files(body: &str) -> Vec<String> {
-    let mut files: Vec<String> = calculate_modified_files(&body)
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+fn get_modified_files(body: &str, filter: &Option<String>) -> Result<Vec<String>> {
+    let mut files: Vec<String> = calculate_modified_files(&body, filter)?.iter().map(|s| s.to_string()).collect();
     files.sort();
-    files
+    Ok(files)
 }
 
-pub fn print_modified_filed(body: &str) {
-    for file in &get_modified_files(body) {
+pub fn print_modified_filed(body: &str, filter: &Option<String>) -> Result<()> {
+    for file in &get_modified_files(body, filter)? {
         println!("{}", file);
     }
+    Ok(())
 }
 
-pub fn print_diff(body: &str) {
-    let files = calculate_modified_files(body);
+pub fn print_diff(body: &str, filter: &Option<String>) -> Result<()> {
+    let files = calculate_modified_files(body, filter)?;
     let mut should_print = false;
     for line in body.lines() {
         if line.starts_with("+++ ") || line.starts_with("--- ") {
@@ -59,6 +88,7 @@ pub fn print_diff(body: &str) {
             println!("{}", line);
         }
     }
+    Ok(())
 }
 
 pub fn fetch_pr(url: &str) -> Result<String> {
