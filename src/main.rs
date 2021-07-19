@@ -19,6 +19,7 @@ fn main() -> Result<()> {
     let options: Options = Options::parse();
 
     let url = options.url;
+    let url = if url.ends_with("/files") { url[..url.len() - 6].to_string() } else { url.to_string() };
     let url = if url.ends_with(".diff") { url.to_string() } else { format!("{}.diff", url) };
     let body = fetch_pr(&url)?;
 
